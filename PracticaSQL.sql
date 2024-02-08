@@ -21,15 +21,20 @@ create table if not exists direccion(
 );
 
 create table if not exists prestamo(
-	Id_Prestamo INT primary key,
+	Id_Prestamo SERIAL primary key,
 	Fecha_de_alquiler DATE not null,
 	Fecha_devolucion DATE null,
 	Numero_de_socio INT not null,
 	Id_copia_pelicula INT not null
 );
 
+create table if not exists copia(
+	Id_copia SERIAL primary key,
+	Id_pelicula INT not null
+);
+
 create table if not exists pelicula(
-	Id_Copia SERIAL primary key,
+	Id_pelicula SERIAL primary key,
 	Titulo VARCHAR(80) not null,
 	Año_publicacion DATE,
 	Genero VARCHAR(50) not null,
@@ -48,9 +53,14 @@ foreign key (Numero_de_socio)
 references socio(Numero_de_socio);
 
 alter table prestamo
-add constraint fk_pelicula_prestamo
+add constraint fk_copia_prestamo
 foreign key (Id_copia_pelicula)
-references pelicula(Id_copia);
+references copia(Id_copia);
+
+alter table copia
+add constraint fk_pelicula_copia
+foreign key (Id_pelicula)
+references pelicula(Id_pelicula);
 
 CREATE TABLE tmp_videoclub (
 	id_copia int4 NULL,
@@ -594,7 +604,7 @@ INSERT INTO tmp_videoclub (id_copia,fecha_alquiler_texto,dni,nombre,apellido_1,a
 	 (306,'2024-01-07','6810904Y','Hugo','Torres','Ferrer','hugo.torres.ferrer@gmail.com','649016903','47006','1994-06-05','50','1','Der.','Federico García Lorca','1Der.','La doncella','Thriller','Corea, década de 1930, durante la colonización japonesa. Una joven llamada Sookee es contratada como doncella de una rica mujer japonesa, Hideko, que vive recluida en una gran mansión bajo la influencia de un tirano. Sookee guarda un secreto y con la ayuda de un estafador que se hace pasar por un conde japonés, planea algo para Hideko.','Park Chan-wook','2024-01-07','2024-01-08'),
 	 (308,'2024-01-25','1638778M','Angel','Lorenzo','Caballero','angel.lorenzo.caballero@gmail.com','698073069','47008','2011-07-30','82','1','Izq.','Sol','1Izq.','El bazar de las sorpresas','Comedia','Alfred Kralik es el tímido jefe de vendedores de Matuschek y Compañía, una tienda de Budapest. Todas las mañanas, los empleados esperan juntos la llegada de su jefe, Hugo Matuschek. A pesar de su timidez, Alfred responde al anuncio de un periódico y mantiene un romance por carta. Su jefe decide contratar a una tal Klara Novak en contra de la opinión de Alfred. En el trabajo, Alfred discute constantemente con ella, sin sospechar que es su corresponsal secreta.','Ernst Lubitsch','2024-01-25',NULL);
 
-	
+
 	insert into socio (nombre, apellido_1, apellido_2, fecha_nacimiento, telefono, dni)
 	select distinct tp.nombre, tp.apellido_1, tp.apellido_2, cast(tp.fecha_nacimiento as DATE), cast(tp.telefono as INT), tp.dni
 	from tmp_videoclub tp;
@@ -606,9 +616,24 @@ INSERT INTO tmp_videoclub (id_copia,fecha_alquiler_texto,dni,nombre,apellido_1,a
 	insert into pelicula (titulo, genero, director, sinopsis)
 	select distinct tp.titulo, tp.genero, tp.director, tp.sinopsis
 	from tmp_videoclub tp;
+	
+	insert into copia (id_pelicula)
+	select p.id_pelicula  
+	from tmp_videoclub tv
+	inner join pelicula p on p.titulo = tv.titulo;
+	
+	insert into prestamo (fecha_de_alquiler, fecha_devolucion, numero_de_socio, id_copia_pelicula)
+	select fecha_alquiler, fecha_devolucion, s.numero_de_socio, c.id_copia 
+	from tmp_videoclub tv
+	inner join socio s on s.dni = tv.dni
+	inner join copia c on c.id_copia = tv.id_copia; 
 
-/*	
-select tp.fecha_alquiler, tp.fecha_devolucion
-	from tmp_videoclub tp
-	join socio s on ;
-	*/
+	select pl.titulo, count(p.id_prestamo) as numero_de_copias
+	from prestamo p
+	inner join copia c on c.id_copia = p.id_copia_pelicula
+	inner join pelicula pl on pl.id_pelicula = c.id_pelicula 
+	where p.fecha_devolucion is null
+	group by pl.titulo;
+	
+
+	
